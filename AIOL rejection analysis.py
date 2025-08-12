@@ -28,7 +28,7 @@ def extract_batch_info(df):
                 cell_value = str(df.iloc[0, col_idx])
                 if 'AIOL production summary' in cell_value or 'SN' in cell_value:
                     # Extract the SN range (batch number)
-                    match = re.search(r'SN\d+-S\d+', cell_value)
+                    match = re.search(r'SN\d+-SN\d+', cell_value)
                     if match:
                         return match.group()
 
@@ -748,4 +748,5 @@ else:
     - Choose between combined view or side-by-side comparison
     - View rejection reasons statistics with pie charts and bar charts
     - Download filtered data as CSV
+
     """)
