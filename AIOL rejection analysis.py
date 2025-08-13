@@ -28,7 +28,7 @@ def extract_batch_info(df):
                 cell_value = str(df.iloc[0, col_idx])
                 if 'AIOL production summary' in cell_value or 'SN' in cell_value:
                     # Extract the SN range (batch number)
-                    match = re.search(r'SN\d+-SN\d+', cell_value)
+                    match = re.search(r'SN\d+-SN?\d+', cell_value)
                     if match:
                         return match.group()
 
@@ -52,32 +52,66 @@ def parse_status_data(df, batch_name):
             value_str = str(value).strip()
 
             if value_str and value_str != 'nan':
-                # Split by dash
-                parts = [part.strip() for part in value_str.split('-')]
-
-                if len(parts) >= 1:
-                    status = parts[0].lower()
-
-                    # Handle different status cases
-                    if status in ['rejected', 'approved']:
-                        rejection_reason = parts[1] if len(parts) >= 2 else 'Unknown'
-                        subfield = parts[2] if len(parts) >= 3 else 'No subfield'
-
+                # Handle different status cases
+                value_lower = value_str.lower()
+                
+                if value_lower == 'approved':
+                    parsed_data.append({
+                        'Batch': batch_name,
+                        'Status': 'Approved',
+                        'Rejection_Reason': '',
+                        'Subfield': '',
+                        'Raw_Data': value_str
+                    })
+                
+                elif value_lower == 'in process':
+                    # Don't count in process items, but track them
+                    continue
+                
+                elif value_str.lower().startswith('rejected'):
+                    # Parse rejected items
+                    # Expected formats:
+                    # "Rejected - Assembly - Out of spec"
+                    # "Rejected - Optical quality - Low MTF"
+                    # "Rejected- Other"
+                    # "Rejected - Injection failure"
+                    # etc.
+                    
+                    # Split by ' - ' or '- ' (handle inconsistent spacing)
+                    parts = re.split(r'\s*-\s*', value_str)
+                    
+                    if len(parts) >= 2:
+                        # Remove "Rejected" from the first part
+                        status = 'Rejected'
+                        
+                        if len(parts) == 2:
+                            # Format: "Rejected - [main_reason]"
+                            rejection_reason = parts[1].strip()
+                            subfield = 'No subfield'
+                        else:
+                            # Format: "Rejected - [main_reason] - [subfield]"
+                            rejection_reason = parts[1].strip()
+                            subfield = parts[2].strip() if len(parts) >= 3 else 'No subfield'
+                        
                         parsed_data.append({
                             'Batch': batch_name,
-                            'Status': status.title(),
+                            'Status': status,
                             'Rejection_Reason': rejection_reason,
                             'Subfield': subfield,
                             'Raw_Data': value_str
                         })
-
-                    elif status == 'in process':
-                        # Don't count in process items, but track them
-                        continue
-
                     else:
-                        # Track other unexpected statuses
-                        other_statuses.add(status)
+                        # Handle malformed rejected entries
+                        parsed_data.append({
+                            'Batch': batch_name,
+                            'Status': 'Rejected',
+                            'Rejection_Reason': 'Unknown',
+                            'Subfield': 'No subfield',
+                            'Raw_Data': value_str
+                        })
+                else:
+                    # Track other unexpected statuses
+                    other_statuses.add(value_str)
 
         return parsed_data, other_statuses
 
@@ -130,8 +164,11 @@ if uploaded_files:
         rejected_data = df_combined[df_combined['Status'] == 'Rejected']
 
         if not rejected_data.empty:
-            # Define expected rejection reasons
-            expected_reasons = ['optical quality', 'assembly', 'injection', 'other', 'sealing', 'in process']
+            # Define expected rejection reasons based on your new format
+            expected_reasons = [
+                'assembly', 'optical quality', 'other', 'injection failure', 
+                'human error', 'not sealed', 'faild accommodation'
+            ]
 
             # Find rejection reasons that don't match expected ones (case-insensitive)
             unexpected_reasons = set()
@@ -218,12 +255,12 @@ if uploaded_files:
                     st.plotly_chart(fig_pie, use_container_width=True)
 
                 with col2:
-                    # Single stacked bar chart for rejection reasons (percentages)
+                    # Single stacked bar chart for rejection reasons (percentages of total items)
                     rejected_df = filtered_df[filtered_df['Status'] == 'Rejected']
-                    total_rejections = len(filtered_df)
+                    total_items = len(filtered_df)  # FIXED: Back to total items for proper percentage
                     if not rejected_df.empty:
                         rejection_counts = rejected_df['Rejection_Reason'].value_counts()
-                        rejection_percentages = (rejection_counts / total_rejections * 100).round(1)
+                        rejection_percentages = (rejection_counts / total_items * 100).round(1)
 
                         # Create a single stacked bar chart
                         fig_bar = go.Figure()
@@ -248,7 +285,6 @@ if uploaded_files:
                         fig_bar.update_layout(
                             title="Rejection Reasons Distribution (%)",
                             barmode='stack',
-                            #plot_bgcolor='white',
                             xaxis_title='',
                             yaxis_title='Percentage (%)',
                             showlegend=True,
@@ -271,10 +307,10 @@ if uploaded_files:
                                                 (filtered_df['Rejection_Reason'].str.lower() == 'assembly')]
 
                 if not assembly_rejected.empty:
-                    # Single stacked bar chart for assembly subfields (percentages)
-                    total_rejections = len(filtered_df[filtered_df['Status'] == 'Rejected'])
+                    # Single stacked bar chart for assembly subfields (percentages of total items)
+                    total_items = len(filtered_df)  # FIXED: Back to total items
                     subfield_counts = assembly_rejected['Subfield'].value_counts()
-                    subfield_percentages = (subfield_counts /total_rejections * 100).round(1)
+                    subfield_percentages = (subfield_counts / total_items * 100).round(1)
 
                     # Create a single stacked bar chart for assembly subfields
                     fig_assembly = go.Figure()
@@ -293,13 +329,12 @@ if uploaded_files:
                             text=f' {percentage:.1f}% ({count})',
                             textposition='inside',
                             textfont=dict(color='black', size=12),
-                            hovertemplate = f'<b>{reason}</b><br>Percentage: {percentage:.1f}%<br>Count: {count}<extra></extra>'
+                            hovertemplate = f'<b>{subfield}</b><br>Percentage: {percentage:.1f}%<br>Count: {count}<extra></extra>'
                         ))
 
                     fig_assembly.update_layout(
                         title="Assembly Rejection Distribution (%)",
                         barmode='stack',
-                        #plot_bgcolor='white',
                         xaxis_title='',
                         yaxis_title='Percentage (%)',
                         showlegend=True,
@@ -326,10 +361,10 @@ if uploaded_files:
                                                (filtered_df['Rejection_Reason'].str.lower() == 'optical quality')]
 
                 if not optical_rejected.empty:
-                    # Single stacked bar chart for optical quality subfields (percentages)
-                    total_rejections = len(filtered_df[filtered_df['Status'] == 'Rejected'])
+                    # Single stacked bar chart for optical quality subfields (percentages of total items)
+                    total_items = len(filtered_df)  # FIXED: Back to total items
                     subfield_counts = optical_rejected['Subfield'].value_counts()
-                    subfield_percentages = (subfield_counts / total_rejections * 100).round(1)
+                    subfield_percentages = (subfield_counts / total_items * 100).round(1)
 
                     # Create a single stacked bar chart for optical quality subfields
                     fig_optical = go.Figure()
@@ -348,13 +383,12 @@ if uploaded_files:
                             text=f' {percentage:.1f}% ({count})',
                             textposition='inside',
                             textfont=dict(color='black', size=12),
-                            hovertemplate = f'<b>{reason}</b><br>Percentage: {percentage:.1f}%<br>Count: {count}<extra></extra>'
+                            hovertemplate = f'<b>{subfield}</b><br>Percentage: {percentage:.1f}%<br>Count: {count}<extra></extra>'
                         ))
 
                     fig_optical.update_layout(
                         title="Optical Quality Rejection Distribution (%)",
                         barmode='stack',
-                        #plot_bgcolor='white',
                         xaxis_title='',
                         yaxis_title='Percentage (%)',
                         showlegend=True,
@@ -425,13 +459,13 @@ if uploaded_files:
 
                     for batch in selected_batches:
                         batch_rejected = rejected_by_batch[rejected_by_batch['Batch'] == batch]
+                        batch_total = len(filtered_df[filtered_df['Batch'] == batch])  # FIXED: total items in batch
 
                         if not batch_rejected.empty:
-                            batch_total_rejected = len(filtered_df[filtered_df['Batch'] == batch])
                             reason_counts = batch_rejected['Rejection_Reason'].value_counts()
 
                             for reason, count in reason_counts.items():
-                                percentage = (count / batch_total_rejected * 100)
+                                percentage = (count / batch_total * 100)  # FIXED: percentage of total items
                                 batch_rejection_data.append({
                                     'Batch': batch,
                                     'Rejection_Reason': reason,
@@ -479,17 +513,16 @@ if uploaded_files:
                                 x=batch_list,
                                 y=percentage_list,
                                 marker_color=color_map[reason],
-                                text=f' {percentage:.1f}% ({count})',
+                                text=text_list,
                                 textposition='inside',
                                 textfont=dict(color='black', size=12),
                                 customdata=count_list,
-                                hovertemplate=f'<b>{reason}</b><br>Percentage: {percentage:.1f}%<br>Count: {count}<extra></extra>'
+                                hovertemplate=f'<b>{reason}</b><br>Percentage: %{{y:.1f}}%<br>Count: %{{customdata}}<extra></extra>'
                             ))
 
                         fig_rejection.update_layout(
-                            title='Rejection Reasons by Batch (% of Rejected Items)',
+                            title='Rejection Reasons by Batch (% of Total Items)',
                             barmode='stack',
-                            #plot_bgcolor='white',
                             xaxis_title='Batch',
                             yaxis_title='Percentage (%)',
                             legend_title='Rejection Reason',
@@ -514,14 +547,13 @@ if uploaded_files:
 
                     for batch in selected_batches:
                         batch_assembly = assembly_rejected_by_batch[assembly_rejected_by_batch['Batch'] == batch]
+                        batch_total = len(filtered_df[filtered_df['Batch'] == batch])  # FIXED: total items in batch
 
                         if not batch_assembly.empty:
-                            batch_total_rejections = len(
-                                filtered_df[(filtered_df['Batch'] == batch) & (filtered_df['Status'] == 'Rejected')])
                             subfield_counts = batch_assembly['Subfield'].value_counts()
 
                             for subfield, count in subfield_counts.items():
-                                percentage = (count / batch_total_rejections * 100)
+                                percentage = (count / batch_total * 100)  # FIXED: percentage of total items
                                 batch_assembly_data.append({
                                     'Batch': batch,
                                     'Subfield': subfield,
@@ -573,13 +605,12 @@ if uploaded_files:
                                 textposition='inside',
                                 textfont=dict(color='black', size=12),
                                 customdata=count_list,
-                                hovertemplate=f'<b>{reason}</b><br>Percentage: %{{y:.1f}}%<br>Count: %{{customdata}}<extra></extra>'
+                                hovertemplate=f'<b>{subfield}</b><br>Percentage: %{{y:.1f}}%<br>Count: %{{customdata}}<extra></extra>'
                             ))
 
                         fig_assembly_batch.update_layout(
-                            title='Assembly Rejection by Batch (% of Assembly Rejections)',
+                            title='Assembly Rejection by Batch (% of Total Items)',
                             barmode='stack',
-                            #plot_bgcolor='white',
                             xaxis_title='Batch',
                             yaxis_title='Percentage (%)',
                             legend_title='Assembly Subfield',
@@ -619,13 +650,13 @@ if uploaded_files:
 
                     for batch in selected_batches:
                         batch_optical = optical_rejected_by_batch[optical_rejected_by_batch['Batch'] == batch]
+                        batch_total = len(filtered_df[filtered_df['Batch'] == batch])  # FIXED: total items in batch
 
                         if not batch_optical.empty:
-                            batch_total_rejections = len(filtered_df[(filtered_df['Batch'] == batch) & (filtered_df['Status'] == 'Rejected')])
                             subfield_counts = batch_optical['Subfield'].value_counts()
 
                             for subfield, count in subfield_counts.items():
-                                percentage = (count / batch_total_rejections * 100)
+                                percentage = (count / batch_total * 100)  # FIXED: percentage of total items
                                 batch_optical_data.append({
                                     'Batch': batch,
                                     'Subfield': subfield,
@@ -677,13 +708,12 @@ if uploaded_files:
                                 textposition='inside',
                                 textfont=dict(color='black', size=12),
                                 customdata=count_list,
-                                hovertemplate=f'<b>{reason}</b><br>Percentage: %{{y:.1f}}%<br>Count: %{{customdata}}<extra></extra>'
+                                hovertemplate=f'<b>{subfield}</b><br>Percentage: %{{y:.1f}}%<br>Count: %{{customdata}}<extra></extra>'
                             ))
 
                         fig_optical_batch.update_layout(
-                            title='Optical Quality Rejection by Batch (% of Optical Quality Rejections)',
+                            title='Optical Quality Rejection by Batch (% of Total Items)',
                             barmode='stack',
-                            #plot_bgcolor='white',
                             xaxis_title='Batch',
                             yaxis_title='Percentage (%)',
                             legend_title='Optical Quality Subfield',
@@ -738,9 +768,14 @@ else:
     - **Batch information**: Located in the first row (D1:R1), containing text like "AIOL production summary SN44-S77"
     - **Status data**: Located in column A starting from row 6, with format:
       - `Approved` - for approved items
-      - `Rejected - [reason]` - for rejected items with reason
-      - `Rejected - [reason] - [subfield]` - for rejected items with reason and subfield
-      - `in process` - items still being processed (will be ignored)
+      - `Rejected - Assembly - Out of spec` - for assembly rejections with subfield
+      - `Rejected - Optical quality - Low MTF` - for optical quality rejections with subfield
+      - `Rejected - Other` - for other rejections
+      - `Rejected - Injection failure` - for injection failure rejections
+      - `Rejected - Human error` - for human error rejections
+      - `Rejected - Not sealed` - for sealing rejections
+      - `Rejected - Failed accommodation` - for accommodation failures
+      - `In process` - items still being processed (will be ignored)
 
     ### Features:
     - Upload multiple Excel files (each representing a different batch)
@@ -748,5 +783,4 @@ else:
     - Choose between combined view or side-by-side comparison
     - View rejection reasons statistics with pie charts and bar charts
     - Download filtered data as CSV
-
     """)
