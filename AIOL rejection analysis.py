@@ -935,13 +935,13 @@ else:
     - **Batch information**: Located in the first row (D1:R1), containing text like "AIOL production summary SN44-S77"
     - **Status data**: Located in column A starting from row 6, with format:
       - `Approved` - for approved items
-      - `Rejected - Assembly - Out of spec` - for assembly rejections with subfield
-      - `Rejected - Optical quality - Low MTF` - for optical quality rejections with subfield
-      - `Rejected - Other` - for other rejections
+      - `Rejected - Assembly` - for assembly rejections with subfield
+      - `Rejected - Optical quality ` - for optical quality rejections with subfield
       - `Rejected - Injection failure` - for injection failure rejections
       - `Rejected - Human error` - for human error rejections
       - `Rejected - Not sealed` - for sealing rejections
       - `Rejected - Failed accommodation` - for accommodation failures
+      - `Rejected - Other` - for other rejections
       - `In process` - items still being processed (will be ignored)
 
     ### Features:
@@ -951,3 +951,4 @@ else:
     - View rejection reasons statistics with pie charts and bar charts
     - Download filtered data as CSV
     """)
+
