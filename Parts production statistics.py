@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import plotly
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import plotly.express as px
@@ -13,6 +12,97 @@ from dateutil import parser
 import numpy as np
 
 warnings.filterwarnings('ignore')
+
+def standardize_rejection_reasons(df):
+    """
+    Standardize rejection reasons based on approved list.
+    Any reason not in the list becomes 'N/A'.
+    Normalize surface irregularities variations.
+    """
+    if df.empty or 'Reason' not in df.columns:
+        return df
+
+    df = df.copy()
+
+    # Define the approved rejection reasons list
+    approved_reasons = {
+        # Standard reasons (keep as-is, case-insensitive)
+        'bubbles and voids': 'Bubbles and voids',
+        'embedded particle': 'Embedded particle',
+        'tears': 'Tears',
+        'not cured': 'Not cured',
+        'other': 'Other',
+        'embedded metals': 'Embedded metals',
+        'hole in sm': 'Hole in SM',
+        'lack of uniformity in pigment': 'Lack of uniformity in pigment',
+        'surface irregularity': 'Surface irregularity',
+
+        # Keep N/A as-is for already processed data
+        'n/a': 'N/A',
+        'na': 'N/A',
+        'NA': 'N/A'
+    }
+
+    # Function to standardize individual reason
+    def standardize_reason(reason):
+        if pd.isna(reason) or str(reason).strip() == '':
+            return 'N/A'
+
+        # Convert to string and clean
+        reason_str = str(reason).strip().lower()
+
+        # Check if it's in approved list
+        if reason_str in approved_reasons:
+            return approved_reasons[reason_str]
+
+        # If not found, return N/A
+        return 'N/A'
+
+    # Apply standardization only to rejected parts
+    rejected_mask = df['Status'] == 'rejected'
+    df.loc[rejected_mask, 'Reason'] = df.loc[rejected_mask, 'Reason'].apply(standardize_reason)
+
+    # For accepted parts, ensure reason is empty
+    df.loc[df['Status'] == 'accepted', 'Reason'] = ''
+
+    return df
+
+
+def get_rejection_reason_colors():
+    """
+    Define consistent colors for each rejection reason.
+    Each reason will always have the same color across all charts.
+    """
+    color_mapping = {
+        'Bubbles and voids': '#b3e5fc',  # Very light blue
+        'Embedded particle': '#ffcc99',       # Light orange
+        'Tears': '#99ff99', # Light green
+        'Surface irregularity': '#fffacd',  # Light yellow
+        'Not cured': '#c2c2f0', # Light purple
+        'Other': '#ff99cc',        # Light pink
+        'Hole in SM': '#d3d3d3',  # Light gray
+        'Lack of uniformity in pigment': '#66b3ff',  # Light blue
+        'N/A': '#17becf',  # Cyan
+    }
+    return color_mapping
+
+def create_color_sequence_for_reasons(reasons_list):
+    """
+    Create a color sequence based on the reasons present in the data.
+    This ensures consistent colors across all charts.
+    """
+    color_mapping = get_rejection_reason_colors()
+
+    # Create color sequence in the order of reasons_list
+    colors = []
+    for reason in reasons_list:
+        if reason in color_mapping:
+            colors.append(color_mapping[reason])
+        else:
+            # Fallback color for any unmapped reason
+            colors.append('#95a5a6')  # Light gray
+
+    return colors
 
 # Page configuration
 st.set_page_config(page_title="Parts Production Statistics", page_icon=":bar_chart:", layout="wide")
@@ -118,6 +208,8 @@ def process_optic_qc(df):
     except Exception as e:
         st.error(f"Error processing Optic QC data: {str(e)}")
         return pd.DataFrame(columns=['Date', 'Status', 'Employee', 'Mold', 'Reason'])
+
+
 
 
 def process_fta_qc(df):
@@ -430,6 +522,7 @@ if uploaded_files:
                 optic_df = pd.read_excel(file, sheet_name='Optic QC', header=None, engine='openpyxl')
                 optic_processed = process_optic_qc(optic_df)
                 if not optic_processed.empty:
+                    optic_processed = standardize_rejection_reasons(optic_processed)
                     optic_processed['File'] = file.name
                     all_optic_data.append(optic_processed)
                     st.write(f"✅ Processed {len(optic_processed)} Optic QC records")
@@ -439,6 +532,7 @@ if uploaded_files:
                 fta_df = pd.read_excel(file, sheet_name='FTA QC', header=None, engine='openpyxl')
                 fta_processed = process_fta_qc(fta_df)
                 if not fta_processed.empty:
+                    fta_processed = standardize_rejection_reasons(fta_processed)
                     fta_processed['File'] = file.name
                     all_fta_data.append(fta_processed)
                     st.write(f"✅ Processed {len(fta_processed)} FTA QC records")
@@ -448,6 +542,7 @@ if uploaded_files:
                 pl_df = pd.read_excel(file, sheet_name='PL QC', header=None, engine='openpyxl')
                 pl_processed = process_pl_qc(pl_df)
                 if not pl_processed.empty:
+                    pl_processed = standardize_rejection_reasons(pl_processed)
                     pl_processed['File'] = file.name
                     all_pl_data.append(pl_processed)
                     st.write(f"✅ Processed {len(pl_processed)} PL QC records")
@@ -457,6 +552,7 @@ if uploaded_files:
                 wings_df = pd.read_excel(file, sheet_name='Wings QC', header=None, engine='openpyxl')
                 wings_processed = process_wings_qc(wings_df)
                 if not wings_processed.empty:
+                    wings_processed = standardize_rejection_reasons(wings_processed)
                     wings_processed['File'] = file.name
                     all_wings_data.append(wings_processed)
                     st.write(f"✅ Processed {len(wings_processed)} Wings QC records")
@@ -612,29 +708,29 @@ if uploaded_files:
     selected_parts = st.sidebar.multiselect("Select Part", part_options, default=part_options)
 
     # Employee filter
-    all_employees = set()
-    if "Optic" in selected_parts and not optic_data.empty:
-        all_employees.update(optic_data['Employee'].unique())
-    if "FTA" in selected_parts and not fta_data.empty:
-        all_employees.update(fta_data['Employee'].unique())
-    if "PL" in selected_parts and not pl_data.empty:
-        all_employees.update(pl_data['Employee'].unique())
-    if "Wings" in selected_parts and not wings_data.empty:
-        all_employees.update(wings_data['Employee'].unique())
+   #all_employees = set()
+   #if "Optic" in selected_parts and not optic_data.empty:
+   #    all_employees.update(optic_data['Employee'].unique())
+   #if "FTA" in selected_parts and not fta_data.empty:
+   #    all_employees.update(fta_data['Employee'].unique())
+   #if "PL" in selected_parts and not pl_data.empty:
+   #    all_employees.update(pl_data['Employee'].unique())
+   #if "Wings" in selected_parts and not wings_data.empty:
+   #    all_employees.update(wings_data['Employee'].unique())
 
-    all_employees = sorted([emp for emp in all_employees if pd.notna(emp)])
-    selected_employees = st.sidebar.multiselect("Select Employees", all_employees)
+   #all_employees = sorted([emp for emp in all_employees if pd.notna(emp)])
+   #selected_employees = st.sidebar.multiselect("Select Employees", all_employees)
 
     # Apply employee filter
-    if selected_employees:
-        if not optic_data.empty:
-            optic_data = optic_data[optic_data['Employee'].isin(selected_employees)]
-        if not fta_data.empty:
-            fta_data = fta_data[fta_data['Employee'].isin(selected_employees)]
-        if not pl_data.empty:
-            pl_data = pl_data[pl_data['Employee'].isin(selected_employees)]
-        if not wings_data.empty:
-            wings_data = wings_data[wings_data['Employee'].isin(selected_employees)]
+   #if selected_employees:
+   #    if not optic_data.empty:
+   #        optic_data = optic_data[optic_data['Employee'].isin(selected_employees)]
+   #    if not fta_data.empty:
+   #        fta_data = fta_data[fta_data['Employee'].isin(selected_employees)]
+   #    if not pl_data.empty:
+   #        pl_data = pl_data[pl_data['Employee'].isin(selected_employees)]
+   #    if not wings_data.empty:
+   #        wings_data = wings_data[wings_data['Employee'].isin(selected_employees)]
 
     # Filter data based on selected parts
     filtered_data = {}
@@ -648,11 +744,51 @@ if uploaded_files:
         filtered_data["Wings"] = wings_data
 
     # Show data info
-    date_range_days = (pd.Timestamp(date2) - pd.Timestamp(date1)).days
-    st.info(f"📊 Analyzing {date_range_days} days of data, grouped by {time_grouping.lower()}")
+    #date_range_days = (pd.Timestamp(date2) - pd.Timestamp(date1)).days
+    #st.info(f"📊 Analyzing {date_range_days} days of data, grouped by {time_grouping.lower()}")
 
-    # TIME-BASED TREND ANALYSIS (New Section)
+    # SUMMARY STATISTICS (MOVED TO TOP)
+    st.subheader("📊 Summary Statistics")
+
+    # Combine all data for the summary
+    summary_stats = []
+    for component_name, data in filtered_data.items():
+        if not data.empty:
+            total = len(data)
+            accepted = len(data[data['Status'] == 'accepted'])
+            rejected = len(data[data['Status'] == 'rejected'])
+            inspected = accepted + rejected
+
+            summary_stats.append({
+                'Component': component_name,
+                'Total Parts': total,
+                'Inspected Parts': inspected,
+                'Accepted': accepted,
+                'Rejected': rejected,
+                'Acceptance Rate (%)': round((accepted / inspected * 100)) if inspected > 0 else 0,
+                'Rejection Rate (%)': round((rejected / inspected * 100)) if inspected > 0 else 0
+            })
+
+    if summary_stats:
+        summary_df = pd.DataFrame(summary_stats)
+        st.dataframe(summary_df, use_container_width=True)
+
+        # Download option for summary
+        csv_summary = summary_df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            "📥 Download Summary Statistics CSV",
+            csv_summary,
+            "summary_statistics.csv",
+            "text/csv"
+        )
+    else:
+        st.info("No data available for summary statistics")
+
+    # TIME-BASED TREND ANALYSIS (Now appears after Summary Statistics)
     st.subheader(f"📈 {time_grouping} Trend Analysis")
+
+
+    # ... rest of the trend analysis code continues here ...
 
 
     def create_period_statistics(data, component_name, grouping_type):
@@ -787,7 +923,7 @@ if uploaded_files:
     else:
         st.info(f"No data available for {time_grouping.lower()} trend analysis")
 
-    # PLOT 2: Mold Configuration Statistics (Grouped with spacing)
+    # PLOT 2: Mold Configuration Statistics (Grouped with spacing) - UPDATED WITH QUANTITIES
     st.subheader("🔧 Mold Configuration Statistics")
 
     mold_stats_data = []
@@ -894,9 +1030,11 @@ if uploaded_files:
         # Create the chart
         fig_mold = go.Figure()
 
-        # Add ACCEPTANCE bars (ALL GREEN)
+        # Add ACCEPTANCE bars (ALL GREEN) with quantities
         acceptance_y = []
         rejection_y = []
+        accepted_quantities = []
+        rejected_quantities = []
 
         for label in x_labels:
             component, mold = label.split('-', 1)
@@ -904,32 +1042,36 @@ if uploaded_files:
             if not row_data.empty:
                 acceptance_y.append(row_data.iloc[0]['Acceptance_Percentage'])
                 rejection_y.append(row_data.iloc[0]['Rejection_Percentage'])
+                accepted_quantities.append(row_data.iloc[0]['Accepted'])
+                rejected_quantities.append(row_data.iloc[0]['Rejected'])
             else:
                 acceptance_y.append(0)
                 rejection_y.append(0)
+                accepted_quantities.append(0)
+                rejected_quantities.append(0)
 
-        # Acceptance bars - ALL GREEN
+        # Acceptance bars - ALL GREEN with quantity in text
         fig_mold.add_trace(go.Bar(
             name='Acceptance %',
             x=x_positions,
             y=acceptance_y,
             marker_color='#28a745',  # Green for all acceptance
-            text=[f'{val:.0f}%' for val in acceptance_y],
+            text=[f'{val:.0f}% ({qty})' for val, qty in zip(acceptance_y, accepted_quantities)],
             textposition='inside',
-            customdata=x_labels,
-            hovertemplate='<b>%{customdata}</b><br>Acceptance: %{y:.1f}%<extra></extra>'
+            customdata=list(zip(x_labels, accepted_quantities)),
+            hovertemplate='<b>%{customdata[0]}</b><br>Acceptance: %{y:.1f}%<br>Quantity: %{customdata[1]}<extra></extra>'
         ))
 
-        # Rejection bars - ALL RED
+        # Rejection bars - ALL RED with quantity in text
         fig_mold.add_trace(go.Bar(
             name='Rejection %',
             x=x_positions,
             y=rejection_y,
             marker_color='#dc3545',  # Red for all rejection
-            text=[f'{val:.0f}%' for val in rejection_y],
+            text=[f'{val:.0f}% ({qty})' for val, qty in zip(rejection_y, rejected_quantities)],
             textposition='inside',
-            customdata=x_labels,
-            hovertemplate='<b>%{customdata}</b><br>Rejection: %{y:.1f}%<extra></extra>'
+            customdata=list(zip(x_labels, rejected_quantities)),
+            hovertemplate='<b>%{customdata[0]}</b><br>Rejection: %{y:.1f}%<br>Quantity: %{customdata[1]}<extra></extra>'
         ))
 
         fig_mold.update_layout(
@@ -1008,7 +1150,9 @@ if uploaded_files:
                 reasons_df = pd.DataFrame(all_period_data)
 
                 # Create grouped bar chart with consistent colors
-                color_sequence = px.colors.qualitative.Set3
+                # Get unique reasons and create consistent color mapping
+                unique_reasons = reasons_df['Reason'].unique()
+                color_sequence = create_color_sequence_for_reasons(unique_reasons)
                 fig_bar = px.bar(
                     reasons_df,
                     x='Period',
@@ -1019,7 +1163,8 @@ if uploaded_files:
                             'Reason': 'Rejection Reason'},
                     color_discrete_sequence=color_sequence,
                     barmode='stack',
-                    hover_data={'Rejected_Count': True}
+                    hover_data={'Rejected_Count': True},
+                    text=[f'{row["Percentage"]}% ({row["Count"]})' for _, row in reasons_df.iterrows()]
                 )
 
                 # Update hover template to include rejected count
@@ -1027,7 +1172,7 @@ if uploaded_files:
                     hovertemplate='<b>%{fullData.name}</b><br>' +
                                   f'{time_grouping}: %{{x}}<br>' +
                                   'Percentage of Total Parts: %{y}%<br>' +
-                                  'Rejected Count: %{customdata[0]}<extra></extra>'
+                                  'Rejected Quantity: %{customdata[0]}<extra></extra>'
                 )
 
                 # Add total rejection annotations with production volume
@@ -1068,6 +1213,11 @@ if uploaded_files:
                                         if pd.notna(k) and str(k).strip() != '' and str(k).strip().lower() != 'unknown'}
 
                     if filtered_reasons:
+
+                        # Get unique reasons and create consistent color mapping
+                        unique_reasons = list(filtered_reasons.keys())
+                        color_sequence = create_color_sequence_for_reasons(unique_reasons)
+
                         fig_pie = px.pie(
                             values=list(filtered_reasons.values()),
                             names=list(filtered_reasons.keys()),
@@ -1119,7 +1269,10 @@ if uploaded_files:
                 if reasons_data:
                     reasons_df = pd.DataFrame(reasons_data)
 
-                    color_sequence = px.colors.qualitative.Set3
+                    # Get unique reasons and create consistent color mapping
+                    unique_reasons = reasons_df['Reason'].unique()
+                    color_sequence = create_color_sequence_for_reasons(unique_reasons)
+
                     fig_bar = px.bar(
                         reasons_df,
                         x='Component',
@@ -1130,15 +1283,16 @@ if uploaded_files:
                                 'Reason': 'Rejection Reason'},
                         color_discrete_sequence=color_sequence,
                         barmode='stack',
-                        hover_data={'Rejected_Count': True}
+                        hover_data={'Count': True},
+                        text=[f'{row["Percentage"]}% ({row["Count"]})' for _, row in reasons_df.iterrows()]
                     )
 
                     # Update hover template
                     fig_bar.update_traces(
                         hovertemplate='<b>%{fullData.name}</b><br>' +
-                                      'Component: %{x}<br>' +
+                                      f'{time_grouping}: %{{x}}<br>' +
                                       'Percentage of Total Parts: %{y}%<br>' +
-                                      'Rejected Count: %{customdata[0]}<extra></extra>'
+                                      'Rejected Quantity: %{customdata[0]}<extra></extra>'
                     )
 
                     # Add total rejection annotation
@@ -1176,7 +1330,7 @@ if uploaded_files:
                     )
                     fig_pie.update_traces(
                         textinfo='label+percent',
-                        texttemplate='%{label}<br>%{percent:.r0%}',
+                        texttemplate='%{label}<br>%{percent:.0%}',
                         hovertemplate='<b>%{label}</b><br>Count: %{value}<br>Percentage: %{percent:.0%}<extra></extra>'
                     )
 
@@ -1353,30 +1507,6 @@ if uploaded_files:
             "text/csv"
         )
 
-        # Show summary statistics
-        st.write("### Summary Statistics")
-
-        summary_stats = []
-        for component_name, data in filtered_data.items():
-            if not data.empty:
-                total = len(data)
-                accepted = len(data[data['Status'] == 'accepted'])
-                rejected = len(data[data['Status'] == 'rejected'])
-                inspected = accepted + rejected
-
-                summary_stats.append({
-                    'Component': component_name,
-                    'Total Parts': total,
-                    'Inspected Parts': inspected,
-                    'Accepted': accepted,
-                    'Rejected': rejected,
-                    'Acceptance Rate (%)': round((accepted / inspected * 100)) if inspected > 0 else 0,
-                    'Rejection Rate (%)': round((rejected / inspected * 100)) if inspected > 0 else 0
-                })
-
-        if summary_stats:
-            summary_df = pd.DataFrame(summary_stats)
-            st.dataframe(summary_df, use_container_width=True)
 
     else:
         st.info("No data available to display in the table")
