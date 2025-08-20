@@ -141,31 +141,42 @@ def find_data_start_row(df, default_start=8):
 
 
 def process_optic_qc(df):
-    """Process Optic QC sheet with flexible row and column detection"""
+    """Process Optic QC sheet with debug output"""
     try:
         start_row = find_data_start_row(df)
+        print(f"🔍 Debug: Starting from row {start_row}")
 
         if len(df) <= start_row:
             return pd.DataFrame(columns=['Date', 'Status', 'Employee', 'Mold', 'Reason'])
 
         data = df.iloc[start_row:].copy()
+        print(f"🔍 Debug: Data shape after row selection: {data.shape}")
 
         # Find status column
         status_col_index = None
         for col_idx in range(data.shape[1]):
             col_values = data.iloc[:, col_idx].dropna().astype(str).str.lower()
-            if any(val in ['accept', 'accepted', 'reject', 'rejected', 'acceppted'] for val in col_values):
+            status_values = [val for val in col_values if
+                             val in ['accept', 'accepted', 'reject', 'rejected', 'acceppted']]
+
+            if len(status_values) > 0:
                 status_col_index = col_idx
+                print(f"🔍 Debug: Found {len(status_values)} status values in column {col_idx}")
+                print(f"🔍 Debug: Status values found: {status_values[:5]}")  # Show first 5
                 break
 
         if status_col_index is None:
-            status_col_index = 6
+            status_col_index = 8
+            print(f"🔍 Debug: Using default status column {status_col_index}")
 
         # Define column indices
         date_col_index = 0
         employee_col_index = 1
         mold_col_index = 3
         reason_col_index = min(status_col_index + 1, data.shape[1] - 1)
+
+        print(
+            f"🔍 Debug: Column mapping - Date: {date_col_index}, Employee: {employee_col_index}, Status: {status_col_index}, Mold: {mold_col_index}, Reason: {reason_col_index}")
 
         # Create processed dataframe
         processed_data = pd.DataFrame({
@@ -176,14 +187,29 @@ def process_optic_qc(df):
             'Reason': data.iloc[:, reason_col_index] if reason_col_index < data.shape[1] else None
         })
 
+        print(f"🔍 Debug: Created dataframe with {len(processed_data)} rows")
+        print(f"🔍 Debug: Sample data before any processing:")
+        if len(processed_data) > 0:
+            print(f"   First few employees: {processed_data['Employee'].head().tolist()}")
+            print(f"   First few statuses: {processed_data['Status'].head().tolist()}")
+
         # Handle merged cells
         processed_data['Date'] = processed_data['Date'].fillna(method='ffill')
         processed_data['Mold'] = processed_data['Mold'].fillna(method='ffill')
 
-        # Filter for accept/reject only
-        processed_data = processed_data[
-            processed_data['Status'].str.lower().str.contains('accept|reject', na=False)
-        ].copy()
+        # CHECK WHAT'S BEING FILTERED OUT
+        print(f"🔍 Debug: Before status filtering - {len(processed_data)} rows")
+
+        # Let's see what status values we actually have
+        all_status_values = processed_data['Status'].dropna().astype(str).str.lower().unique()
+        print(f"🔍 Debug: All status values found: {all_status_values}")
+
+        # Apply the filter
+        valid_status_mask = processed_data['Status'].str.lower().str.contains('accept|reject', na=False)
+        print(f"🔍 Debug: Rows with valid status: {valid_status_mask.sum()}")
+
+        processed_data = processed_data[valid_status_mask].copy()
+        print(f"🔍 Debug: After status filtering - {len(processed_data)} rows")
 
         # Clean up status values
         processed_data['Status'] = processed_data['Status'].str.lower()
@@ -203,10 +229,16 @@ def process_optic_qc(df):
         # Convert Date column to datetime
         processed_data['Date'] = pd.to_datetime(processed_data['Date'], errors='coerce')
 
+        print(f"🔍 Debug: FINAL RESULT - {len(processed_data)} rows processed")
+        if len(processed_data) > 0:
+            print(f"🔍 Debug: Final employees: {processed_data['Employee'].unique()}")
+            print(f"🔍 Debug: Final status counts: {processed_data['Status'].value_counts().to_dict()}")
+
         return processed_data
 
     except Exception as e:
         st.error(f"Error processing Optic QC data: {str(e)}")
+        print(f"🔍 Debug: ERROR - {str(e)}")
         return pd.DataFrame(columns=['Date', 'Status', 'Employee', 'Mold', 'Reason'])
 
 
@@ -1148,6 +1180,7 @@ if uploaded_files:
 
             if all_period_data:
                 reasons_df = pd.DataFrame(all_period_data)
+                reasons_df = reasons_df.sort_values('Period')
 
                 # Create grouped bar chart with consistent colors
                 # Get unique reasons and create consistent color mapping
@@ -1164,10 +1197,28 @@ if uploaded_files:
                     color_discrete_sequence=color_sequence,
                     barmode='stack',
                     hover_data={'Rejected_Count': True},
-                    text=[f'{row["Percentage"]}% ({row["Count"]})' for _, row in reasons_df.iterrows()]
+                    text=[f'{row["Percentage"]}% ({row["Count"]})' for _, row in reasons_df.iterrows()],
                 )
 
-                # Update hover template to include rejected count
+                # Add sorting function and apply chronological order
+                def sort_month_periods(periods):
+                    """Sort month-year labels chronologically"""
+                    try:
+                        period_dates = []
+                        for period in periods:
+                            try:
+                                date_obj = pd.to_datetime(period, format='%b %Y')
+                                period_dates.append((date_obj, period))
+                            except:
+                                period_dates.append((pd.to_datetime('1900-01-01'), period))
+
+                        period_dates.sort(key=lambda x: x[0])
+                        return [period for _, period in period_dates]
+                    except:
+                        return sorted(periods)
+
+                sorted_periods = sort_month_periods(reasons_df['Period'].unique())
+                fig_bar.update_xaxes(categoryorder='array', categoryarray=sorted_periods)
                 fig_bar.update_traces(
                     hovertemplate='<b>%{fullData.name}</b><br>' +
                                   f'{time_grouping}: %{{x}}<br>' +
