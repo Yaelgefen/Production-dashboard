@@ -141,81 +141,76 @@ def find_data_start_row(df, default_start=8):
 
 
 def process_optic_qc(df):
-    """Process Optic QC sheet with debug output"""
+    """Process Optic QC sheet with specific structure"""
     try:
-        start_row = find_data_start_row(df)
-        print(f"🔍 Debug: Starting from row {start_row}")
+        st.write("🔍 **DEBUG: Starting Optic QC Processing**")
+        st.write(f"Raw dataframe shape: {df.shape}")
 
-        if len(df) <= start_row:
-            return pd.DataFrame(columns=['Date', 'Status', 'Employee', 'Mold', 'Reason'])
+        # Show first few rows of raw data
+        with st.expander("🔍 Debug: First 10 rows of raw Optic QC data"):
+            st.write(df.head(10))
 
-        data = df.iloc[start_row:].copy()
-        print(f"🔍 Debug: Data shape after row selection: {data.shape}")
+        # data starts at index 8
+        data = df.iloc[8:].copy()
+        st.write(f"After selecting from row 8: {data.shape[0]} rows")
 
-        # Find status column
-        status_col_index = None
-        for col_idx in range(data.shape[1]):
-            col_values = data.iloc[:, col_idx].dropna().astype(str).str.lower()
-            status_values = [val for val in col_values if
-                             val in ['accept', 'accepted', 'reject', 'rejected', 'acceppted']]
+        # Check what's in the status column (index 6)
+        st.write(f"🔍 Checking column 6 (status column):")
+        status_col_values = data.iloc[:, 6].dropna().unique()
+        st.write(f"Unique values in column 6: {status_col_values[:10]}")  # Show first 10
 
-            if len(status_values) > 0:
-                status_col_index = col_idx
-                print(f"🔍 Debug: Found {len(status_values)} status values in column {col_idx}")
-                print(f"🔍 Debug: Status values found: {status_values[:5]}")  # Show first 5
-                break
+        # Check if any contain 'accept' or 'reject'
+        status_containing_accept_reject = [val for val in status_col_values if
+                                           'accept' in str(val).lower() or 'reject' in str(val).lower()]
+        st.write(f"Values containing 'accept' or 'reject': {status_containing_accept_reject}")
 
-        if status_col_index is None:
-            status_col_index = 8
-            print(f"🔍 Debug: Using default status column {status_col_index}")
-
-        # Define column indices
-        date_col_index = 0
-        employee_col_index = 1
-        mold_col_index = 3
-        reason_col_index = min(status_col_index + 1, data.shape[1] - 1)
-
-        print(
-            f"🔍 Debug: Column mapping - Date: {date_col_index}, Employee: {employee_col_index}, Status: {status_col_index}, Mold: {mold_col_index}, Reason: {reason_col_index}")
-
-        # Create processed dataframe
+        # Create a new DataFrame with the columns we want
         processed_data = pd.DataFrame({
-            'Date': data.iloc[:, date_col_index],
-            'Status': data.iloc[:, status_col_index],
-            'Employee': data.iloc[:, employee_col_index].astype(str),
-            'Mold': data.iloc[:, mold_col_index] if mold_col_index < data.shape[1] else None,
-            'Reason': data.iloc[:, reason_col_index] if reason_col_index < data.shape[1] else None
+            'Date': data.iloc[:, 0],
+            'Status': data.iloc[:, 6],
+            'Employee': data.iloc[:, 1].astype(str),
+            'Mold': data.iloc[:, 3],
+            'Reason': data.iloc[:, 7]
         })
 
-        print(f"🔍 Debug: Created dataframe with {len(processed_data)} rows")
-        print(f"🔍 Debug: Sample data before any processing:")
-        if len(processed_data) > 0:
-            print(f"   First few employees: {processed_data['Employee'].head().tolist()}")
-            print(f"   First few statuses: {processed_data['Status'].head().tolist()}")
+        st.write(f"🔍 After creating processed_data: {len(processed_data)} rows")
+
+        # Show sample of processed data before filtering
+        with st.expander("🔍 Debug: Sample processed data (before filtering)"):
+            st.write(processed_data.head(10))
 
         # Handle merged cells
         processed_data['Date'] = processed_data['Date'].fillna(method='ffill')
         processed_data['Mold'] = processed_data['Mold'].fillna(method='ffill')
 
-        # CHECK WHAT'S BEING FILTERED OUT
-        print(f"🔍 Debug: Before status filtering - {len(processed_data)} rows")
+        # Check status values before filtering
+        st.write(f"🔍 Status values before filtering:")
+        st.write(processed_data['Status'].value_counts())
 
-        # Let's see what status values we actually have
-        all_status_values = processed_data['Status'].dropna().astype(str).str.lower().unique()
-        print(f"🔍 Debug: All status values found: {all_status_values}")
+        # Remove any rows where Status is not 'accepted' or 'rejected'
+        before_filter = len(processed_data)
+        processed_data = processed_data[
+            processed_data['Status'].str.lower().str.contains('accept|reject', na=False)
+        ].copy()
+        after_filter = len(processed_data)
 
-        # Apply the filter
-        valid_status_mask = processed_data['Status'].str.lower().str.contains('accept|reject', na=False)
-        print(f"🔍 Debug: Rows with valid status: {valid_status_mask.sum()}")
+        st.write(
+            f"🔍 Filtering results: {before_filter} rows → {after_filter} rows (removed {before_filter - after_filter})")
 
-        processed_data = processed_data[valid_status_mask].copy()
-        print(f"🔍 Debug: After status filtering - {len(processed_data)} rows")
+        if after_filter == 0:
+            st.error("⚠️ NO DATA after filtering! Check if status values match 'accept' or 'reject'")
+            st.write("Available status values were:",
+                     processed_data['Status'].unique() if before_filter > 0 else "None")
 
         # Clean up status values
         processed_data['Status'] = processed_data['Status'].str.lower()
         processed_data['Status'] = processed_data['Status'].replace('acceppted', 'accepted')
         processed_data['Status'] = processed_data['Status'].replace('accept', 'accepted')
         processed_data['Status'] = processed_data['Status'].replace('reject', 'rejected')
+
+        # Standardize status values
+        processed_data.loc[processed_data['Status'].str.lower().str.contains('accept'), 'Status'] = 'accepted'
+        processed_data.loc[processed_data['Status'].str.lower().str.contains('reject'), 'Status'] = 'rejected'
 
         # Clean up rejection reasons
         processed_data['Reason'] = processed_data['Reason'].astype(str).str.strip()
@@ -229,20 +224,17 @@ def process_optic_qc(df):
         # Convert Date column to datetime
         processed_data['Date'] = pd.to_datetime(processed_data['Date'], errors='coerce')
 
-        print(f"🔍 Debug: FINAL RESULT - {len(processed_data)} rows processed")
+        st.write(f"✅ **FINAL: Optic QC processed {len(processed_data)} rows**")
         if len(processed_data) > 0:
-            print(f"🔍 Debug: Final employees: {processed_data['Employee'].unique()}")
-            print(f"🔍 Debug: Final status counts: {processed_data['Status'].value_counts().to_dict()}")
+            st.write(f"Status distribution: {processed_data['Status'].value_counts().to_dict()}")
 
         return processed_data
 
     except Exception as e:
         st.error(f"Error processing Optic QC data: {str(e)}")
-        print(f"🔍 Debug: ERROR - {str(e)}")
+        import traceback
+        st.code(traceback.format_exc())
         return pd.DataFrame(columns=['Date', 'Status', 'Employee', 'Mold', 'Reason'])
-
-
-
 
 def process_fta_qc(df):
     """Process FTA QC sheet with specific structure"""
