@@ -1270,12 +1270,15 @@ if uploaded_files:
 
                 period_label = period_data['Period_Label'].iloc[0] if 'Period_Label' in period_data.columns else str(
                     period)
-                period_totals[period_label] = {
-                    'rejection_rate': round(total_rejection_rate),
-                    'total_produced': total_parts,
-                    'total_accepted': total_accepted
-                }
-                production_volume_data[period_label] = total_accepted
+
+                # ADD THIS: Store accepted data too
+                all_period_data.append({
+                    'Period': period_label,
+                    'Reason': 'Accepted',  # Add accepted as a "reason"
+                    'Count': total_accepted,
+                    'Percentage': round((total_accepted / total_parts * 100) if total_parts > 0 else 0),
+                    'Rejected_Count': 0
+                })
 
                 # Get rejection reasons for this period
                 rejected_data = period_data[period_data['Status'] == 'rejected']
@@ -1285,7 +1288,6 @@ if uploaded_files:
 
                     for reason, count in reason_counts.items():
                         if pd.notna(reason) and str(reason).strip() != '' and str(reason).strip().lower() != 'unknown':
-                            # Calculate percentage of TOTAL PARTS in this period
                             percentage = (count / total_parts * 100) if total_parts > 0 else 0
 
                             all_period_data.append({
@@ -1293,7 +1295,7 @@ if uploaded_files:
                                 'Reason': str(reason),
                                 'Count': count,
                                 'Percentage': round(percentage),
-                                'Rejected_Count': count  # Added for hover info
+                                'Rejected_Count': count
                             })
 
             if all_period_data:
@@ -1445,6 +1447,29 @@ if uploaded_files:
             total_rejected = len(data[data['Status'] == 'rejected'])
             total_rejection_rate = (total_rejected / total_parts * 100) if total_parts > 0 else 0
             rejected_data = data[data['Status'] == 'rejected']
+            # ADD THIS: Add accepted data first
+            reasons_data = [{
+                'Component': component_name,
+                'Reason': 'Accepted',
+                'Count': total_accepted,
+                'Percentage': round((total_accepted / total_parts * 100) if total_parts > 0 else 0),
+                'Rejected_Count': 0
+            }]
+
+            if not rejected_data.empty:
+                reason_counts = rejected_data['Reason'].value_counts()
+
+                for reason, count in reason_counts.items():
+                    if pd.notna(reason) and str(reason).strip() != '' and str(reason).strip().lower() != 'unknown':
+                        percentage = (count / total_parts * 100) if total_parts > 0 else 0
+
+                        reasons_data.append({
+                            'Component': component_name,
+                            'Reason': str(reason),
+                            'Count': count,
+                            'Percentage': round(percentage),
+                            'Rejected_Count': count
+                        })
 
             # Initialize as None - IMPORTANT!
             fig_bar = None
