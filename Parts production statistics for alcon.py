@@ -563,8 +563,8 @@ def merge_rejection_reasons(df, component_name):
     if component_name == "FTA":
         # FTA merging rules:
         # 1. 'bubbles and voids' + 'tears' + 'hole in sm' = 'Tears/ Voids'
-        fta_merge_1 = ['bubbles and voids', 'tears', 'hole in sm']
-        df.loc[rejected_mask & df['Reason_normalized'].isin(fta_merge_1), 'Reason'] = 'Tears/ Voids'
+        fta_merge_1 = ['bubbles and voids', 'hole in sm']
+        df.loc[rejected_mask & df['Reason_normalized'].isin(fta_merge_1), 'Reason'] = 'bubbles and voids'
 
         # 2. 'embedded metals' + 'embedded particle' = 'Embedded particle'
         fta_merge_2 = ['embedded metals', 'embedded particle']
