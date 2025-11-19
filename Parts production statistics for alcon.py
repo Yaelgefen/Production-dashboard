@@ -13,7 +13,6 @@ import numpy as np
 
 warnings.filterwarnings('ignore')
 
-
 def extract_month_from_filename(filename):
     """
     Extract month from filename format PM2507 (July 2025)
@@ -644,32 +643,32 @@ if uploaded_files:
                     st.write(f"✅ Processed {len(fta_processed)} FTA QC records")
 
             # Process Optic QC if available
-            if 'Optic QC' in available_sheets:
-                optic_df = pd.read_excel(file, sheet_name='Optic QC', header=None, engine='openpyxl')
-                optic_processed = process_optic_qc(optic_df)
-                if not optic_processed.empty:
-                    optic_processed = standardize_rejection_reasons(optic_processed)
-                    optic_processed = merge_rejection_reasons(optic_processed, "Optic")
+            #if 'Optic QC' in available_sheets:
+            #    optic_df = pd.read_excel(file, sheet_name='Optic QC', header=None, engine='openpyxl')
+            #    optic_processed = process_optic_qc(optic_df)
+            #    if not optic_processed.empty:
+            #        optic_processed = standardize_rejection_reasons(optic_processed)
+            #        optic_processed = merge_rejection_reasons(optic_processed, "Optic")
                     # ADD THIS DEBUG CODE:
-                    st.write("🔍 DEBUG: Optic reasons after merging:")
-                    st.write(optic_processed[optic_processed['Status'] == 'rejected']['Reason'].value_counts())
-                    optic_processed['File'] = file.name
-                    all_optic_data.append(optic_processed)
-                    st.write(f"✅ Processed {len(optic_processed)} Optic QC records")
+            #        st.write("🔍 DEBUG: Optic reasons after merging:")
+            #        st.write(optic_processed[optic_processed['Status'] == 'rejected']['Reason'].value_counts())
+            #        optic_processed['File'] = file.name
+            #        all_optic_data.append(optic_processed)
+            #        st.write(f"✅ Processed {len(optic_processed)} Optic QC records")
 
             # Process FTA QC if available
-            if 'FTA QC' in available_sheets:
-                fta_df = pd.read_excel(file, sheet_name='FTA QC', header=None, engine='openpyxl')
-                fta_processed = process_fta_qc(fta_df)
-                if not fta_processed.empty:
-                    fta_processed = standardize_rejection_reasons(fta_processed)
-                    fta_processed = merge_rejection_reasons(fta_processed, "FTA")
-                    # ADD THIS DEBUG CODE:
-                    st.write("🔍 DEBUG: FTA reasons after merging:")
-                    st.write(fta_processed[fta_processed['Status'] == 'rejected']['Reason'].value_counts())
-                    fta_processed['File'] = file.name
-                    all_fta_data.append(fta_processed)
-                    st.write(f"✅ Processed {len(fta_processed)} FTA QC records")
+            #if 'FTA QC' in available_sheets:
+            #    fta_df = pd.read_excel(file, sheet_name='FTA QC', header=None, engine='openpyxl')
+            #    fta_processed = process_fta_qc(fta_df)
+            #    if not fta_processed.empty:
+            #        fta_processed = standardize_rejection_reasons(fta_processed)
+            #        fta_processed = merge_rejection_reasons(fta_processed, "FTA")
+            #        # ADD THIS DEBUG CODE:
+            #        st.write("🔍 DEBUG: FTA reasons after merging:")
+            #        st.write(fta_processed[fta_processed['Status'] == 'rejected']['Reason'].value_counts())
+            #        fta_processed['File'] = file.name
+            #        all_fta_data.append(fta_processed)
+            #        st.write(f"✅ Processed {len(fta_processed)} FTA QC records")
 
             # Process PL QC if available
             if 'PL QC' in available_sheets:
@@ -677,10 +676,10 @@ if uploaded_files:
                 pl_processed = process_pl_qc(pl_df, filename=file.name)  # PASS FILENAME
                 if not pl_processed.empty:
                     pl_processed = standardize_rejection_reasons(pl_processed)
-                    pl_processed = merge_rejection_reasons(pl_processed, "PL")
+                    #pl_processed = merge_rejection_reasons(pl_processed, "PL")
                     # ADD THIS DEBUG CODE:
-                    st.write("🔍 DEBUG: pl reasons after merging:")
-                    st.write(pl_processed[pl_processed['Status'] == 'rejected']['Reason'].value_counts())
+                    #st.write("🔍 DEBUG: pl reasons after merging:")
+                    #st.write(pl_processed[pl_processed['Status'] == 'rejected']['Reason'].value_counts())
                     pl_processed['File'] = file.name
                     all_pl_data.append(pl_processed)
                     st.write(f"✅ Processed {len(pl_processed)} PL QC records")
@@ -691,10 +690,10 @@ if uploaded_files:
                 wings_processed = process_wings_qc(wings_df, filename=file.name)  # PASS FILENAME
                 if not wings_processed.empty:
                     wings_processed = standardize_rejection_reasons(wings_processed)
-                    wings_processed = merge_rejection_reasons(wings_processed, "Wings")
+                    #wings_processed = merge_rejection_reasons(wings_processed, "Wings")
                     # ADD THIS DEBUG CODE:
-                    st.write("🔍 DEBUG: wings reasons after merging:")
-                    st.write(wings_processed[wings_processed['Status'] == 'rejected']['Reason'].value_counts())
+                    #st.write("🔍 DEBUG: wings reasons after merging:")
+                    #st.write(wings_processed[wings_processed['Status'] == 'rejected']['Reason'].value_counts())
                     wings_processed['File'] = file.name
                     all_wings_data.append(wings_processed)
                     st.write(f"✅ Processed {len(wings_processed)} Wings QC records")
@@ -1447,7 +1446,7 @@ if uploaded_files:
             total_rejected = len(data[data['Status'] == 'rejected'])
             total_rejection_rate = (total_rejected / total_parts * 100) if total_parts > 0 else 0
             rejected_data = data[data['Status'] == 'rejected']
-            # ADD THIS: Add accepted data first
+            # Add accepted data first
             reasons_data = [{
                 'Component': component_name,
                 'Reason': 'Accepted',
@@ -1478,116 +1477,116 @@ if uploaded_files:
             reasons_df = None
             production_volume_data = {}
 
-            if not rejected_data.empty:
-                reason_counts = rejected_data['Reason'].value_counts()
-                reasons_data = []
+            #if not rejected_data.empty:
+            #    reason_counts = rejected_data['Reason'].value_counts()
+            #    reasons_data = []
 
-                for reason, count in reason_counts.items():
-                    if pd.notna(reason) and str(reason).strip() != '' and str(reason).strip().lower() != 'unknown':
-                        # Calculate percentage of TOTAL PARTS
-                        percentage = (count / total_parts * 100) if total_parts > 0 else 0
-                        reasons_data.append({
-                            'Component': component_name,
-                            'Reason': str(reason),
-                            'Count': count,
-                            'Percentage': round(percentage),
-                            'Rejected_Count': count
-                        })
+            #    for reason, count in reason_counts.items():
+            #        if pd.notna(reason) and str(reason).strip() != '' and str(reason).strip().lower() != 'unknown':
+            #            # Calculate percentage of TOTAL PARTS
+            #            percentage = (count / total_parts * 100) if total_parts > 0 else 0
+            #            reasons_data.append({
+            #                'Component': component_name,
+            #                'Reason': str(reason),
+            #                'Count': count,
+            #                'Percentage': round(percentage),
+            #                'Rejected_Count': count
+            #            })
 
-                if reasons_data:
-                    reasons_df = pd.DataFrame(reasons_data)
+            if reasons_data:
+                reasons_df = pd.DataFrame(reasons_data)
 
-                    # Get unique reasons and create consistent color mapping
-                    unique_reasons = reasons_df['Reason'].unique()
-                    color_sequence = create_color_sequence_for_reasons(unique_reasons)
-                    fig_bar = px.bar(
-                        reasons_df,
-                        x='Component',
-                        y='Percentage',
-                        color='Reason',
-                        title=f'{component_name} - Rejection Reasons (% of Total Parts)',
-                        labels={'Component': 'Component', 'Percentage': 'Percentage of Total Parts (%)',
-                                'Reason': 'Rejection Reason'},
-                        color_discrete_sequence=color_sequence,
-                        barmode='stack',
-                        hover_data={'Count': True},
-                        text=[f'{row["Percentage"]}% ({row["Count"]})' for _, row in reasons_df.iterrows()]
-                    )
+                # Get unique reasons and create consistent color mapping
+                unique_reasons = reasons_df['Reason'].unique()
+                color_sequence = create_color_sequence_for_reasons(unique_reasons)
+                fig_bar = px.bar(
+                    reasons_df,
+                    x='Component',
+                    y='Percentage',
+                    color='Reason',
+                    title=f'{component_name} - Rejection Reasons (% of Total Parts)',
+                    labels={'Component': 'Component', 'Percentage': 'Percentage of Total Parts (%)',
+                            'Reason': 'Rejection Reason'},
+                    color_discrete_sequence=color_sequence,
+                    barmode='stack',
+                    hover_data={'Count': True},
+                    text=[f'{row["Percentage"]}% ({row["Count"]})' for _, row in reasons_df.iterrows()]
+                )
 
-                    # Update hover template
-                    fig_bar.update_traces(
-                        hovertemplate='<b>%{fullData.name}</b><br>' +
-                                      f'{time_grouping}: %{{x}}<br>' +
-                                      'Percentage of Total Parts: %{y}%<br>' +
-                                      'Rejected Quantity: %{customdata[0]}<extra></extra>'
-                    )
+                # Update hover template
+                fig_bar.update_traces(
+                    hovertemplate='<b>%{fullData.name}</b><br>' +
+                                  f'{time_grouping}: %{{x}}<br>' +
+                                  'Percentage of Total Parts: %{y}%<br>' +
+                                  'Rejected Quantity: %{customdata[0]}<extra></extra>'
+                )
 
-                    # Add total rejection annotation
-                    total_height = reasons_df['Percentage'].sum()
-                    fig_bar.add_annotation(
-                        x=component_name,
-                        y=total_height + 3,
-                        text=f"Total: {round(total_rejection_rate)}% ({total_parts})",
-                        showarrow=False,
-                        font=dict(size=11, color="black", family="Segoe UI Semilight (Body)"),
-                        bgcolor="rgba(255,255,255,0.8)",
-                        bordercolor="black",
-                        borderwidth=1,
-                        xanchor="center"
-                    )
+                # Add total rejection annotation
+                total_height = reasons_df['Percentage'].sum()
+                fig_bar.add_annotation(
+                    x=component_name,
+                    y=total_height + 3,
+                    text=f"Total: {round(total_rejection_rate)}% ({total_parts})",
+                    showarrow=False,
+                    font=dict(size=11, color="black", family="Segoe UI Semilight (Body)"),
+                    bgcolor="rgba(255,255,255,0.8)",
+                    bordercolor="black",
+                    borderwidth=1,
+                    xanchor="center"
+                )
 
-                    fig_bar.update_layout(
-                        yaxis_range=[0, total_height + 10],
-                        height=400,
-                        font_family="Segoe UI Semilight (Body)"
-                    )
+                fig_bar.update_layout(
+                    yaxis_range=[0, total_height + 10],
+                    height=400,
+                    font_family="Segoe UI Semilight (Body)"
+                )
 
-                    # Create pie chart for rejection reasons only
-                    fig_pie = px.pie(
-                        reasons_df,
-                        values='Count',
-                        names='Reason',
-                        title=f'{component_name} - Rejection Reasons Distribution',
-                        color_discrete_sequence=color_sequence
-                    )
+                # Create pie chart for rejection reasons only
+                fig_pie = px.pie(
+                    reasons_df,
+                    values='Count',
+                    names='Reason',
+                    title=f'{component_name} - Rejection Reasons Distribution',
+                    color_discrete_sequence=color_sequence
+                )
 
-                    fig_pie.update_layout(
-                        font_family="Segoe UI Semilight (Body)",
-                        height=400
-                    )
+                fig_pie.update_layout(
+                    font_family="Segoe UI Semilight (Body)",
+                    height=400
+                )
 
-                    fig_pie.update_traces(
-                        textinfo='label+percent',
-                        texttemplate='%{label}<br>%{percent:.0%}',
-                        hovertemplate='<b>%{label}</b><br>Count: %{value}<br>Percentage: %{percent:.0%}<extra></extra>'
-                    )
+                fig_pie.update_traces(
+                    textinfo='label+percent',
+                    texttemplate='%{label}<br>%{percent:.0%}',
+                    hovertemplate='<b>%{label}</b><br>Count: %{value}<br>Percentage: %{percent:.0%}<extra></extra>'
+                )
 
-                    # NEW: Create combined pie chart with accepted + rejected breakdown
-                    combined_data = {'Accepted': total_accepted}
-                    for _, row in reasons_df.iterrows():
-                        combined_data[row['Reason']] = row['Count']
+                # NEW: Create combined pie chart with accepted + rejected breakdown
+                combined_data = {'Accepted': total_accepted}
+                for _, row in reasons_df.iterrows():
+                    combined_data[row['Reason']] = row['Count']
 
-                    # Get colors for combined chart
-                    combined_reasons = list(combined_data.keys())
-                    combined_color_sequence = create_color_sequence_for_reasons(combined_reasons)
-                    fig_pie_combined = px.pie(
-                        values=list(combined_data.values()),
-                        names=list(combined_data.keys()),
-                        title=f'{component_name} - Accepted vs Rejected Breakdown',
-                        color_discrete_sequence=combined_color_sequence
-                    )
+                # Get colors for combined chart
+                combined_reasons = list(combined_data.keys())
+                combined_color_sequence = create_color_sequence_for_reasons(combined_reasons)
+                fig_pie_combined = px.pie(
+                    values=list(combined_data.values()),
+                    names=list(combined_data.keys()),
+                    title=f'{component_name} - Accepted vs Rejected Breakdown',
+                    color_discrete_sequence=combined_color_sequence
+                )
 
-                    fig_pie_combined.update_layout(
-                        font_family="Segoe UI Semilight (Body)",
-                        height=400
-                    )
+                fig_pie_combined.update_layout(
+                    font_family="Segoe UI Semilight (Body)",
+                    height=400
+                )
 
-                    fig_pie_combined.update_traces(
-                        textinfo='label+percent',
-                        texttemplate='%{label}<br>%{percent:.0%}',
-                        hovertemplate='<b>%{label}</b><br>Count: %{value}<br>Percentage: %{percent:.0%}<extra></extra>'
-                    )
-                    production_volume_data = {component_name: total_accepted}
+                fig_pie_combined.update_traces(
+                    textinfo='label+percent',
+                    texttemplate='%{label}<br>%{percent:.0%}',
+                    hovertemplate='<b>%{label}</b><br>Count: %{value}<br>Percentage: %{percent:.0%}<extra></extra>'
+                )
+                production_volume_data = {component_name: total_accepted}
 
             return fig_bar, fig_pie, fig_pie_combined, reasons_df, production_volume_data
 
@@ -1595,7 +1594,6 @@ if uploaded_files:
 
 
     # Create separate plots for each component
-    # OPTIC PLOT
     # OPTIC PLOT
     st.write("### Optic Rejection Analysis")
     if "Optic" in filtered_data and not filtered_data["Optic"].empty:
