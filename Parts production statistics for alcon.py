@@ -173,26 +173,26 @@ def find_data_start_row(df, default_start=8):
 def process_optic_qc(df):
     """Process Optic QC sheet with specific structure"""
     try:
-        st.write("🔍 **DEBUG: Starting Optic QC Processing**")
-        st.write(f"Raw dataframe shape: {df.shape}")
+        #st.write("🔍 **DEBUG: Starting Optic QC Processing**")
+        #st.write(f"Raw dataframe shape: {df.shape}")
 
         # Show first few rows of raw data
-        with st.expander("🔍 Debug: First 10 rows of raw Optic QC data"):
-            st.write(df.head(10))
+        #with st.expander("🔍 Debug: First 10 rows of raw Optic QC data"):
+        #    st.write(df.head(10))
 
         # data starts at index 8
         data = df.iloc[8:].copy()
-        st.write(f"After selecting from row 8: {data.shape[0]} rows")
+        #st.write(f"After selecting from row 8: {data.shape[0]} rows")
 
         # Check what's in the status column (index 6)
-        st.write(f"🔍 Checking column 6 (status column):")
-        status_col_values = data.iloc[:, 6].dropna().unique()
-        st.write(f"Unique values in column 6: {status_col_values[:10]}")  # Show first 10
+        #st.write(f"🔍 Checking column 6 (status column):")
+        #status_col_values = data.iloc[:, 6].dropna().unique()
+        #st.write(f"Unique values in column 6: {status_col_values[:10]}")  # Show first 10
 
         # Check if any contain 'accept' or 'reject'
-        status_containing_accept_reject = [val for val in status_col_values if
-                                           'accept' in str(val).lower() or 'reject' in str(val).lower()]
-        st.write(f"Values containing 'accept' or 'reject': {status_containing_accept_reject}")
+        #status_containing_accept_reject = [val for val in status_col_values if
+        #                                   'accept' in str(val).lower() or 'reject' in str(val).lower()]
+        #st.write(f"Values containing 'accept' or 'reject': {status_containing_accept_reject}")
 
         # Create a new DataFrame with the columns we want
         processed_data = pd.DataFrame({
@@ -203,11 +203,11 @@ def process_optic_qc(df):
             'Reason': data.iloc[:, 7]
         })
 
-        st.write(f"🔍 After creating processed_data: {len(processed_data)} rows")
+        #st.write(f"🔍 After creating processed_data: {len(processed_data)} rows")
 
         # Show sample of processed data before filtering
-        with st.expander("🔍 Debug: Sample processed data (before filtering)"):
-            st.write(processed_data.head(10))
+        #with st.expander("🔍 Debug: Sample processed data (before filtering)"):
+        #    st.write(processed_data.head(10))
 
         # Handle merged cells
         processed_data['Date'] = processed_data['Date'].fillna(method='ffill')
@@ -224,8 +224,8 @@ def process_optic_qc(df):
         ].copy()
         after_filter = len(processed_data)
 
-        st.write(
-            f"🔍 Filtering results: {before_filter} rows → {after_filter} rows (removed {before_filter - after_filter})")
+        #st.write(
+        #    f"🔍 Filtering results: {before_filter} rows → {after_filter} rows (removed {before_filter - after_filter})")
 
         if after_filter == 0:
             st.error("⚠️ NO DATA after filtering! Check if status values match 'accept' or 'reject'")
@@ -254,9 +254,9 @@ def process_optic_qc(df):
         # Convert Date column to datetime
         processed_data['Date'] = pd.to_datetime(processed_data['Date'], errors='coerce')
 
-        st.write(f"✅ **FINAL: Optic QC processed {len(processed_data)} rows**")
-        if len(processed_data) > 0:
-            st.write(f"Status distribution: {processed_data['Status'].value_counts().to_dict()}")
+        #st.write(f"✅ **FINAL: Optic QC processed {len(processed_data)} rows**")
+        #if len(processed_data) > 0:
+        #    st.write(f"Status distribution: {processed_data['Status'].value_counts().to_dict()}")
 
         return processed_data
 
@@ -642,44 +642,13 @@ if uploaded_files:
                     all_fta_data.append(fta_processed)
                     st.write(f"✅ Processed {len(fta_processed)} FTA QC records")
 
-            # Process Optic QC if available
-            #if 'Optic QC' in available_sheets:
-            #    optic_df = pd.read_excel(file, sheet_name='Optic QC', header=None, engine='openpyxl')
-            #    optic_processed = process_optic_qc(optic_df)
-            #    if not optic_processed.empty:
-            #        optic_processed = standardize_rejection_reasons(optic_processed)
-            #        optic_processed = merge_rejection_reasons(optic_processed, "Optic")
-                    # ADD THIS DEBUG CODE:
-            #        st.write("🔍 DEBUG: Optic reasons after merging:")
-            #        st.write(optic_processed[optic_processed['Status'] == 'rejected']['Reason'].value_counts())
-            #        optic_processed['File'] = file.name
-            #        all_optic_data.append(optic_processed)
-            #        st.write(f"✅ Processed {len(optic_processed)} Optic QC records")
-
-            # Process FTA QC if available
-            #if 'FTA QC' in available_sheets:
-            #    fta_df = pd.read_excel(file, sheet_name='FTA QC', header=None, engine='openpyxl')
-            #    fta_processed = process_fta_qc(fta_df)
-            #    if not fta_processed.empty:
-            #        fta_processed = standardize_rejection_reasons(fta_processed)
-            #        fta_processed = merge_rejection_reasons(fta_processed, "FTA")
-            #        # ADD THIS DEBUG CODE:
-            #        st.write("🔍 DEBUG: FTA reasons after merging:")
-            #        st.write(fta_processed[fta_processed['Status'] == 'rejected']['Reason'].value_counts())
-            #        fta_processed['File'] = file.name
-            #        all_fta_data.append(fta_processed)
-            #        st.write(f"✅ Processed {len(fta_processed)} FTA QC records")
-
             # Process PL QC if available
             if 'PL QC' in available_sheets:
                 pl_df = pd.read_excel(file, sheet_name='PL QC', header=None, engine='openpyxl')
                 pl_processed = process_pl_qc(pl_df, filename=file.name)  # PASS FILENAME
                 if not pl_processed.empty:
                     pl_processed = standardize_rejection_reasons(pl_processed)
-                    #pl_processed = merge_rejection_reasons(pl_processed, "PL")
-                    # ADD THIS DEBUG CODE:
-                    #st.write("🔍 DEBUG: pl reasons after merging:")
-                    #st.write(pl_processed[pl_processed['Status'] == 'rejected']['Reason'].value_counts())
+
                     pl_processed['File'] = file.name
                     all_pl_data.append(pl_processed)
                     st.write(f"✅ Processed {len(pl_processed)} PL QC records")
@@ -690,10 +659,7 @@ if uploaded_files:
                 wings_processed = process_wings_qc(wings_df, filename=file.name)  # PASS FILENAME
                 if not wings_processed.empty:
                     wings_processed = standardize_rejection_reasons(wings_processed)
-                    #wings_processed = merge_rejection_reasons(wings_processed, "Wings")
-                    # ADD THIS DEBUG CODE:
-                    #st.write("🔍 DEBUG: wings reasons after merging:")
-                    #st.write(wings_processed[wings_processed['Status'] == 'rejected']['Reason'].value_counts())
+
                     wings_processed['File'] = file.name
                     all_wings_data.append(wings_processed)
                     st.write(f"✅ Processed {len(wings_processed)} Wings QC records")
@@ -712,12 +678,6 @@ if uploaded_files:
     fta_data = normalize_employee_names(fta_data)
     pl_data = normalize_employee_names(pl_data)
     wings_data = normalize_employee_names(wings_data)
-
-    # After normalizing employee names, add this for each dataset:
-    #optic_data = clean_rejection_reasons(optic_data)
-    #fta_data = clean_rejection_reasons(fta_data)
-    #pl_data = clean_rejection_reasons(pl_data)
-    #wings_data = clean_rejection_reasons(wings_data)
 
     st.success(
         f"📈 Combined data: {len(optic_data)} Optic QC records, {len(fta_data)} FTA QC records, {len(pl_data)} PL QC records, {len(wings_data)} Wings QC records")
@@ -856,31 +816,6 @@ if uploaded_files:
     part_options = ["Optic", "FTA", "PL", "Wings"]
     selected_parts = st.sidebar.multiselect("Select Part", part_options, default=part_options)
 
-    # Employee filter
-   #all_employees = set()
-   #if "Optic" in selected_parts and not optic_data.empty:
-   #    all_employees.update(optic_data['Employee'].unique())
-   #if "FTA" in selected_parts and not fta_data.empty:
-   #    all_employees.update(fta_data['Employee'].unique())
-   #if "PL" in selected_parts and not pl_data.empty:
-   #    all_employees.update(pl_data['Employee'].unique())
-   #if "Wings" in selected_parts and not wings_data.empty:
-   #    all_employees.update(wings_data['Employee'].unique())
-
-   #all_employees = sorted([emp for emp in all_employees if pd.notna(emp)])
-   #selected_employees = st.sidebar.multiselect("Select Employees", all_employees)
-
-    # Apply employee filter
-   #if selected_employees:
-   #    if not optic_data.empty:
-   #        optic_data = optic_data[optic_data['Employee'].isin(selected_employees)]
-   #    if not fta_data.empty:
-   #        fta_data = fta_data[fta_data['Employee'].isin(selected_employees)]
-   #    if not pl_data.empty:
-   #        pl_data = pl_data[pl_data['Employee'].isin(selected_employees)]
-   #    if not wings_data.empty:
-   #        wings_data = wings_data[wings_data['Employee'].isin(selected_employees)]
-
     # Filter data based on selected parts
     filtered_data = {}
     if "Optic" in selected_parts:
@@ -891,10 +826,6 @@ if uploaded_files:
         filtered_data["PL"] = pl_data
     if "Wings" in selected_parts:
         filtered_data["Wings"] = wings_data
-
-    # Show data info
-    #date_range_days = (pd.Timestamp(date2) - pd.Timestamp(date1)).days
-    #st.info(f"📊 Analyzing {date_range_days} days of data, grouped by {time_grouping.lower()}")
 
     # SUMMARY STATISTICS (MOVED TO TOP)
     st.subheader("📊 Summary Statistics")
@@ -933,12 +864,8 @@ if uploaded_files:
     else:
         st.info("No data available for summary statistics")
 
-    # TIME-BASED TREND ANALYSIS (Now appears after Summary Statistics)
+    # TIME-BASED TREND ANALYSIS
     st.subheader(f"📈 {time_grouping} Trend Analysis")
-
-
-    # ... rest of the trend analysis code continues here ...
-
 
     def create_period_statistics(data, component_name, grouping_type):
         """Create statistics grouped by time period"""
@@ -1270,7 +1197,7 @@ if uploaded_files:
                 period_label = period_data['Period_Label'].iloc[0] if 'Period_Label' in period_data.columns else str(
                     period)
 
-                # ADD THIS: Store accepted data too
+                #  Store accepted data
                 all_period_data.append({
                     'Period': period_label,
                     'Reason': 'Accepted',  # Add accepted as a "reason"
@@ -1405,7 +1332,7 @@ if uploaded_files:
                             hovertemplate='<b>%{label}</b><br>Count: %{value}<br>Percentage: %{percent:.0%}<extra></extra>'
                         )
 
-                        # NEW: Create pie chart with accepted + rejected breakdown
+                        # Create pie chart with accepted + rejected breakdown
                         total_accepted = len(overall_accepted)
 
                         # Combine accepted count with rejection reasons
@@ -1477,21 +1404,6 @@ if uploaded_files:
             reasons_df = None
             production_volume_data = {}
 
-            #if not rejected_data.empty:
-            #    reason_counts = rejected_data['Reason'].value_counts()
-            #    reasons_data = []
-
-            #    for reason, count in reason_counts.items():
-            #        if pd.notna(reason) and str(reason).strip() != '' and str(reason).strip().lower() != 'unknown':
-            #            # Calculate percentage of TOTAL PARTS
-            #            percentage = (count / total_parts * 100) if total_parts > 0 else 0
-            #            reasons_data.append({
-            #                'Component': component_name,
-            #                'Reason': str(reason),
-            #                'Count': count,
-            #                'Percentage': round(percentage),
-            #                'Rejected_Count': count
-            #            })
 
             if reasons_data:
                 reasons_df = pd.DataFrame(reasons_data)
@@ -1561,7 +1473,7 @@ if uploaded_files:
                     hovertemplate='<b>%{label}</b><br>Count: %{value}<br>Percentage: %{percent:.0%}<extra></extra>'
                 )
 
-                # NEW: Create combined pie chart with accepted + rejected breakdown
+                # Create combined pie chart with accepted + rejected breakdown
                 combined_data = {'Accepted': total_accepted}
                 for _, row in reasons_df.iterrows():
                     combined_data[row['Reason']] = row['Count']
